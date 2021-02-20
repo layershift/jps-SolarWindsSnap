@@ -2,7 +2,7 @@ _info : 'https://docs.cloudscripting.com/1.6.2/'
 version: 1.6.2
 build: 20210220
 type: update
-name: 'SolarWindsSnap'
+name: 'Solar Winds Snap'
 id: 'SolarWindsSnap'
 homepage: https://jps.layershift.com/SolarWindsSnap
 baseUrl: https://raw.githubusercontent.com/layershift/jps-SolarWindsSnap/master
