@@ -1,0 +1,7 @@
+Cmnd_Alias SOLARWINDS                   = /usr/local/bin/swisnap *
+Cmnd_Alias SOLARWINDS_SERVICE           = /sbin/service swisnapd *,/sbin/service swisnapd.service *
+Cmnd_Alias SOLARWINDS_SYSTEMCTL         = /usr/bin/systemctl start swisnapd,            /usr/bin/systemctl stop swisnapd,               /usr/bin/systemctl restart swisnapd,           /usr/bin/systemctl status swisnapd
+Cmnd_Alias SOLARWINDS_SYSTEMCTL_SERVICE = /usr/bin/systemctl start swisnapd.service,    /usr/bin/systemctl stop swisnapd.service,       /usr/bin/systemctl restart swisnapd.service,   /usr/bin/systemctl status swisnapd.service
+
+%ssh-access ALL = NOPASSWD:SOLARWINDS, SOLARWINDS_SERVICE, SOLARWINDS_SYSTEMCTL, SOLARWINDS_SYSTEMCTL_SERVICE
+

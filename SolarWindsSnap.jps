@@ -1,0 +1,192 @@
+_info : 'https://docs.cloudscripting.com/1.6.2/'
+version: 1.6.2
+build: 20210219
+type: update
+name: 'SolarWindsSnap'
+id: 'SolarWindsSnap'
+homepage: https://jps.layershift.com/SolarWindsSnap
+_baseUrl: https://raw.githubusercontent.com/layershift/jps-SolarWindsSnap/master
+baseUrl: https://raul.uk.easy-server.com/git/jps-SolarWindsSnap/
+logo: /images/SolarWinds.svg?_r=${fn.random}
+
+categories:
+ - apps/others
+
+description:
+  text: /texts/description.md
+  short: SolarWinds > AppOptics > Infrastructure
+
+targetNodes:
+  nodeGroup: '*'
+
+globals:
+  message: ""
+
+settings:
+  main:
+    fields:
+    - type: string
+      name: AppOpticsAPIToken 
+      caption: AppOptics API Token 
+      hideLabel: false
+      required: true
+    - type: displayfield
+      name: displayfield
+      markup: All metrics will be tagged with the "Environment name"
+      hidden: false    
+  tags:
+    fields:
+    - type: string
+      name: AppOpticsTag
+      caption: Tag all metrics with this tag
+      hideLabel: false
+      required: false
+    - type: displayfield
+      name: displayfield
+      markup: If empty the environment name will used!
+      hidden: false    
+
+
+menu:
+  - caption: Restart SolarWindsSnap
+    loadingText: Restarting..
+    confirmText: Are you sure you wish to restart SolarWindsSnap?
+    action: restartSnap
+  - caption: Configure
+    loadingText: Updating..
+    settings: main
+    confirmText: Are you sure you wish to configure SolarWindsSnap?
+    action: install
+    successText: /text/success.md
+  - caption: Change Tag
+    loadingText: Updating..
+    settings: tags
+    confirmText: Are you sure you wish to configure SolarWindsSnap?
+    action: updateTag
+    successText: Tag successfully updated!
+
+
+buttons:
+  - caption: Status
+    loadingText: Checking..
+    action: checkSnapStatus
+  - caption: Dashboard
+    href: https://my.appoptics.com/
+
+
+onAfterRedeployContainer:
+  install:
+    name: Install Action
+
+onAfterAddNode:
+  install:
+    name: Install Action
+
+onAfterCloneNodes:
+  install:
+    name: Install Action
+
+onInstall:
+  install:
+    name: Install Action
+
+onUninstall:
+  cmd [${targetNodes.nodeGroup}]:
+    - systemctl stop swisnapd.service
+    - systemctl disable swisnapd.service
+    - yum -y remove solarwinds-snap-agent;
+    - rm -vf /etc/yum.repos.d/SolarWinds_swisnap.repo
+    - rm -vf /etc/sudoers.d/SolarWindsSnap;
+    - rm -vf /etc/profile.d/SolarWindsSnap.sh;
+    - rm -vf /usr/local/bin/setTagOnAllMetrics.sh
+  sayYes: true
+  user: root
+
+actions:
+  appendMessage:
+    setGlobals:
+      message: ${globals.message}${this}
+
+  install:
+    - setGlobals:
+      - message: ""
+    - forEach(node:targetNodes):
+      - cmd [${@node.id}]:
+          - echo -e "\n\nOn node ${@node.id}";
+          - which rpm 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nrpm not found"; exit 0; fi;
+          - which systemctl 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nsystemctl not found"; exit 0; fi;
+          - bash -c "$(curl -sSL https://files.solarwinds.cloud/solarwinds-snap-agent-installer.sh)" -s --token ${settings.AppOpticsAPIToken} -y -D --no-color;
+          - if [ $? -gt 0 ]; then echo -e "\nIssue:\nCan't install agent"; exit 0; fi;
+          - usermod -a -G  700 solarwinds;
+          - usermod -a -G  solarwinds jelastic;
+          - chmod -v g+w /opt/SolarWinds/Snap/etc/* -R;
+          - find /opt/SolarWinds/Snap/etc -type d -exec chmod -v g+s {} \ ;          
+          - curl -fsSL '${baseUrl}/scripts/sudo_SolarWindsSnap' -o /etc/sudoers.d/SolarWindsSnap;
+          - chmod 640 /etc/sudoers.d/SolarWindsSnap;
+          - curl -fsSL '${baseUrl}/scripts/profile_SolarWindsSnap' -o /etc/profile.d/SolarWindsSnap.sh;
+          - curl -fsSL '${baseUrl}/scripts/setTagOnAllMetrics.sh' -o /usr/local/bin/setTagOnAllMetrics.sh;
+          - chmod 750 /usr/local/bin/setTagOnAllMetrics.sh;
+          - /usr/local/bin/setTagOnAllMetrics.sh "${env.envName}";
+          - systemctl restart swisnapd;
+        sayYes: true
+        user: root
+      - appendMessage: ${response.out}
+    - if (globals.message.indexOf("Issue") !== -1):
+        message:  ${globals.message}
+        script: |
+          return {result: 2309, message: message.replace(/\n/g, '  \n')}
+
+  restartSnap:
+    - setGlobals:
+      - message: ""
+    - forEach(node:targetNodes):
+      - cmd [${@node.id}]:
+          - systemctl restart swisnapd 2>&1 > /dev/null;
+          - sleep 5;
+          - systemctl status swisnapd 2>&1 > /dev/null;
+          - if [ $? -gt 0 ]; then echo -en " - On node ${@node.id}\nStatus =  "; systemctl status swisnapd | grep Active; echo -e " \n\n"; fi;
+        user: root
+      - appendMessage: ${response.out}
+    - if (globals.message.length > 0):
+        return:
+          type: error
+          message: '${globals.message}'
+    - return:
+        type: success
+        message: 'SolarWindsSnap restart complete'
+
+  checkSnapStatus:
+    - setGlobals:
+      - message: ""
+    - forEach(node:targetNodes):
+      - cmd [${@node.id}]:
+          - echo -en " - On node ${@node.id}\nStatus =  ";
+          - systemctl status swisnapd | grep Active;
+          - echo -e " \n\n";
+        user: root
+      - appendMessage: ${response.out}
+    - message: ${globals.message}
+      script: |
+        return {result: 2308, message: message.replace(/\n/g, '  \n')}
+
+  updateTag:
+    - setGlobals:
+      - message: ""
+    - forEach(node:targetNodes):
+      - cmd [${@node.id}]:
+        - if [ "${settings.AppOpticsTag}" == "" ]; then /usr/local/bin/setTagOnAllMetrics.sh "${env.envName}"; else /usr/local/bin/setTagOnAllMetrics.sh "${settings.AppOpticsTag}"; fi;
+        - systemctl restart swisnapd;
+        user: root
+      - appendMessage: ${response.out}
+    - message: ${globals.message}
+      script: |
+        return {result: 2308, message: message.replace(/\n/g, '  \n')}
+
+responses:
+  2308:
+    type: success
+  
+  2309:
+    type: error
+
+success: /texts/success.md
