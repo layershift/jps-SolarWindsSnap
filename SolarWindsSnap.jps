@@ -114,6 +114,8 @@ actions:
           - echo -e "\n\nOn node ${@node.id}";
           - which rpm 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nrpm not found"; exit 0; fi;
           - which systemctl 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nsystemctl not found"; exit 0; fi;
+          - yum-config-manager --save --setopt=pgdg*.skip_if_unavailable=true
+          - yum-config-manager --save --setopt=mysql*.skip_if_unavailable=true
           - bash -c "$(curl -sSL https://files.solarwinds.cloud/solarwinds-snap-agent-installer.sh)" -s --token ${settings.AppOpticsAPIToken} -y -D --no-color;
           - if [ $? -gt 0 ]; then echo -e "\nIssue:\nCan't install agent"; exit 0; fi;
           - usermod -a -G  700 solarwinds;
