@@ -12,7 +12,7 @@ categories:
  - apps/others
 
 description:
-  text: /texts/description.md
+  text: /texts/descriptionLogsMetrics.md
   short: Add-on for Solar Winds Snap. Will configure metrics and logs
 
 targetNodes:
@@ -77,4 +77,4 @@ responses:
   2309:
     type: error
 
-success: /texts/success.md
+success: /texts/successLogsMetrics.md
