@@ -79,7 +79,7 @@ EOF
         #urls:
         #  - http://localhost:8088/server_status" >> /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml
             fi
-            cat <<EOF > /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml
+            cat <<EOF >> /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml
         ## Optional TLS Config
         # tls_ca: /path/to/cafile
         # tls_cert: /path/to/certfile
