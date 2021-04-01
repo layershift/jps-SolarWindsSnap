@@ -21,6 +21,31 @@ targetNodes:
 globals:
   message: ""
 
+settings:
+  main:
+    fields:
+    - type: string
+      name: logglyToken 
+      caption: Loggly Token 
+      hideLabel: false
+      required: false
+    - type: displayfield
+      name: displayfield
+      markup: Source Setup > Source Browser > SolarWinds Snap Agent> --token
+      hidden: false    
+    - type: displayfield
+      name: displayfield
+      markup: If not set then the currently used token, if any, won't be replaced.
+      hidden: false    
+
+menu:
+  - caption: Change Token
+    loadingText: Updating..
+    settings: main
+    confirmText: Are you sure you wish to replace Loggly Token token?
+    action: updateToken
+    successText: Token successfully updated!
+
 
 onAfterRedeployContainer:
   install:
@@ -42,6 +67,7 @@ onUninstall:
   cmd [${targetNodes.nodeGroup}]:
     - /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh uninstall;
     - rm -vf /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh;
+    - /usr/local/bin/SolarWindsLogsMetricsChangeToken.sh
   sayYes: true
   user: root
 
@@ -60,6 +86,9 @@ actions:
           - rpm -q solarwinds-snap-agent 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nsolarwinds-snap-agent not found"; exit 0; fi;
           - curl -fsSL '${baseUrl}/scripts/findLogs.sh' -o /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh;
           - chmod 750 /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh;
+          - curl -fsSL '${baseUrl}/scripts/changeToken.sh' -o /usr/local/bin/SolarWindsChangeToken.sh;
+          - chmod 750 /usr/local/bin/SolarWindsChangeToken.sh;
+          - /usr/local/bin/SolarWindsChangeToken.sh "${settings.logglyToken}"
           - /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh;
         sayYes: true
         user: root
@@ -68,6 +97,22 @@ actions:
         message:  ${globals.message}
         script: |
           return {result: 2309, message: message.replace(/\n/g, '  \n')}
+
+  updateToken:
+    - setGlobals:
+      - message: ""
+    - forEach(node:targetNodes):
+      - cmd [${@node.id}]:
+        - if [ "${settings.logglyToken}" != "" ]; then 
+          if [ ! -f "/usr/local/bin/SolarWindsChangeToken.sh" ]; then curl -fsSL '${baseUrl}/scripts/changeToken.sh' -o /usr/local/bin/SolarWindsChangeToken.sh; chmod 750 /usr/local/bin/SolarWindsChangeToken.sh; fi;
+        - /usr/local/bin/SolarWindsChangeToken.sh "${settings.logglyToken}"; 
+        - fi; 
+        - systemctl restart swisnapd;
+        user: root
+      - appendMessage: ${response.out}
+    - message: ${globals.message}
+      script: |
+        return {result: 2308, message: message.replace(/\n/g, '  \n')}
 
 
 responses:
