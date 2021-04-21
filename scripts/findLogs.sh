@@ -101,7 +101,8 @@ EOF
         log_files:
           file_paths:
 EOF
-            for file in $(egrep "error_log|access_log" /etc/nginx/*.conf -rh  | awk '{print $(NF-1)}'); do
+#            for file in $(egrep "error_log|access_log" /etc/nginx/*.conf -rh  | awk '{print $(NF-1)}'); do
+            for file in $(find /var/log/nginx/ -name "*.log"); do
                 if [ -f $file ];
                     then echo  "\
             - path: $file" >> /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml
@@ -113,7 +114,7 @@ EOF
             cat <<EOF >> /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml
 
     publish:
-      - plugin_name: publisher-appoptics
+      - plugin_name: loggly-http-bulk
 EOF
             diff /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml.$now
         fi # end of if nginx pid was found
