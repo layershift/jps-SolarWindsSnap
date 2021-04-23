@@ -102,6 +102,8 @@ EOF
           file_paths:
 EOF
 #            for file in $(egrep "error_log|access_log" /etc/nginx/*.conf -rh  | awk '{print $(NF-1)}'); do
+            # fix php-fpm.log group permission
+            chmod g+r /var/log/nginx/php-fpm.log
             for file in $(find /var/log/nginx/ -name "*.log"); do
                 if [ -f $file ];
                     then echo  "\

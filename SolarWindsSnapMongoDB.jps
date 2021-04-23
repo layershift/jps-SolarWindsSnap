@@ -1,0 +1,96 @@
+version: 1.6.2
+build: 20210422
+type: update
+name: 'Solar Winds MongoDB'
+id: 'SolarWindsMongoDB'
+homepage: https://jps.layershift.com/SolarWindsSnap
+baseUrl: https://raw.githubusercontent.com/layershift/jps-SolarWindsSnap/master
+logo: /images/SolarWinds.svg?_r=${fn.random}
+
+categories:
+ - apps/others
+
+description:
+  text: /texts/descriptionLogsMetrics.md
+  short: Add-on for Solar Winds Snap. Will configure MongoDB plugin
+
+targetNodes:
+  nodeGroup: '*'
+
+globals:
+  message: ""
+
+settings:
+  main:
+    fields:
+    - type: displayfield
+      name: mongoDBHost
+      markup: mongoDBHost will always be localhost.
+      hidden: false    
+    - type: string
+      name: mongoDBuser 
+      caption: MongoDB Username 
+      hideLabel: false
+      required: false
+    - type: string
+      name: mongoDBpassword
+      caption: MongoDB Password 
+      hideLabel: false
+      required: false
+
+onAfterRedeployContainer:
+  install:
+    name: Install Action
+
+onAfterAddNode:
+  install:
+    name: Install Action
+
+onAfterCloneNodes:
+  install:
+    name: Install Action
+
+onInstall:
+  install:
+    name: Install Action
+
+onUninstall:
+  cmd [${targetNodes.nodeGroup}]:
+    - /usr/local/bin/SolarWindsHelperMongoDB.sh uninstall;
+    - rm -vf /usr/local/bin/SolarWindsHelperMongoDB.sh;
+  sayYes: true
+  user: root
+
+actions:
+  appendMessage:
+    setGlobals:
+      message: ${globals.message}${this}
+
+  install:
+    - setGlobals:
+      - message: ""
+    - forEach(node:targetNodes):
+      - cmd [${@node.id}]:
+          - echo -e "\n\nOn node ${@node.id}";
+          - which rpm 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nrpm not found"; exit 0; fi;
+          - rpm -q solarwinds-snap-agent 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nsolarwinds-snap-agent not found"; exit 0; fi;
+          - curl -fsSL '${baseUrl}/scripts/helperMongoDB.sh' -o /usr/local/bin/SolarWindsHelperMongoDB.sh;
+          - chmod 750 /usr/local/bin/SolarWindsHelperMongoDB.sh;
+          - /usr/local/bin/SolarWindsHelperMongoDB.sh install "${settings.mongoDBuser}" "${settings.mongoDBpassword}"
+        sayYes: true
+        user: root
+      - appendMessage: ${response.out}
+    - if (globals.message.indexOf("Issue") !== -1):
+        message:  ${globals.message}
+        script: |
+          return {result: 2309, message: message.replace(/\n/g, '  \n')}
+
+responses:
+  2308:
+    type: success
+  
+  2309:
+    type: error
+
+success: Successfully installed Solar Winds MongoDB plugin enabler!
+
