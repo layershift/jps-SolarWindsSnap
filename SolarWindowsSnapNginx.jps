@@ -1,8 +1,8 @@
 version: 1.6.2
-build: 20210423
+build: 20210426
 type: update
-name: 'Solar Winds MongoDB'
-id: 'SolarWindsMongoDB'
+name: 'Solar Winds Nginx'
+id: 'SolarWindsNginx'
 homepage: https://jps.layershift.com/SolarWindsSnap
 baseUrl: https://raw.githubusercontent.com/layershift/jps-SolarWindsSnap/master
 logo: /images/SolarWinds.svg?_r=${fn.random}
@@ -11,41 +11,28 @@ categories:
  - apps/others
 
 description:
-  text: /texts/descriptionMongoDB.md
-  short: Add-on for Solar Winds Snap. Will configure MongoDB plugin
+  text: /texts/descriptionNginx.md
+  short: Add-on for Solar Winds Snap. Will configure Nginx metrics
 
 targetNodes:
-  nodeGroup: 
-    - nosqldb
+  nodeType:
+    - nginx-dockerized 
+    - nginx
+    - nginxphp-dockerized
+    - nginxphp
+    - nginxruby 
+    - nginx-ruby
+    - nginxphp-redis
 
 globals:
   message: ""
 
-settings:
-  main:
-    fields:
-    - type: displayfield
-      name: mongoDBHost
-      markup: mongoDBHost will always be localhost.
-      hidden: false    
-    - type: string
-      name: mongoDBuser 
-      caption: MongoDB Username 
-      hideLabel: false
-      required: false
-    - type: string
-      name: mongoDBpassword
-      caption: MongoDB Password 
-      hideLabel: false
-      required: false
-
 menu:
-  - caption: Configure
+  - caption: Reset
     loadingText: Updating..
-    settings: main
-    confirmText: Are you sure you wish to configure Solar Winds MongoDB?
+    confirmText: Are you sure you wish to reset Solar Winds Nginx?
     action: install
-    successText: Successfully configured Solar Winds MongoDB plugin enabler!
+    successText: Successfully reset Solar Winds Nginx plugin enabler!
 
 
 onAfterRedeployContainer:
@@ -66,8 +53,8 @@ onInstall:
 
 onUninstall:
   cmd [${targetNodes.nodeGroup}]:
-    - /usr/local/bin/SolarWindsHelperMongoDB.sh uninstall;
-    - rm -vf /usr/local/bin/SolarWindsHelperMongoDB.sh;
+    - /usr/local/bin/SolarWindsHelperNginx.sh uninstall;
+    - rm -vf /usr/local/bin/SolarWindsHelperNginx.sh;
   sayYes: true
   user: root
 
@@ -84,9 +71,9 @@ actions:
           - echo -e "\n\nOn node ${@node.id}";
           - which rpm 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nrpm not found"; exit 0; fi;
           - rpm -q solarwinds-snap-agent 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nsolarwinds-snap-agent not found"; exit 0; fi;
-          - curl -fsSL '${baseUrl}/scripts/helperMongoDB.sh' -o /usr/local/bin/SolarWindsHelperMongoDB.sh;
-          - chmod 750 /usr/local/bin/SolarWindsHelperMongoDB.sh;
-          - /usr/local/bin/SolarWindsHelperMongoDB.sh install "${settings.mongoDBuser}" "${settings.mongoDBpassword}"
+          - curl -fsSL '${baseUrl}/scripts/helperNginx.sh' -o /usr/local/bin/SolarWindsHelperNginx.sh;
+          - chmod 750 /usr/local/bin/SolarWindsHelperNginx.sh;
+          - /usr/local/bin/SolarWindsHelperNginx.sh install
         sayYes: true
         user: root
       - appendMessage: ${response.out}
@@ -102,5 +89,5 @@ responses:
   2309:
     type: error
 
-success: Successfully installed Solar Winds MongoDB plugin enabler!
+success: Successfully installed Solar Winds Nginx plugin enabler!
 
