@@ -89,6 +89,8 @@ EOF
     publish:
       - plugin_name: publisher-appoptics
 EOF
+        diff /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-bridge-nginx.yaml.$now
+    fi # end of if nginx pid was found
 ;;
 esac
     
