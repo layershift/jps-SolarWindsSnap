@@ -1,4 +1,4 @@
-# Solar Winds Logs & Metrics
+# Solar Winds Nginx
 
 It's an add-on for Solar Winds Snap which will load the Nginx task
 
