@@ -2,8 +2,8 @@ _info : 'https://docs.cloudscripting.com/1.6.2/'
 version: 1.6.2
 build: 20210302
 type: update
-name: 'Solar Winds Logs & Metrics'
-id: 'SolarWindsLogsMetrics'
+name: 'Solar Winds Loggly'
+id: 'SolarWindsLoggly'
 homepage: https://jps.layershift.com/SolarWindsSnap
 baseUrl: https://raw.githubusercontent.com/layershift/jps-SolarWindsSnap/master
 logo: /images/SolarWinds.svg?_r=${fn.random}
@@ -12,8 +12,8 @@ categories:
  - apps/others
 
 description:
-  text: /texts/descriptionLogsMetrics.md
-  short: Add-on for Solar Winds Snap. Will configure metrics and logs
+  text: /texts/descriptionLoggly.md
+  short: Add-on for Solar Winds Snap. Will configure Loggly.
 
 targetNodes:
   nodeGroup: '*'
@@ -28,7 +28,7 @@ settings:
       name: logglyToken 
       caption: Loggly Token 
       hideLabel: false
-      required: false
+      required: true
     - type: displayfield
       name: displayfield
       markup: Source Setup > Source Browser > SolarWinds Snap Agent> --token
@@ -36,6 +36,14 @@ settings:
     - type: displayfield
       name: displayfield2
       markup: If not set then the currently used token, if any, won't be replaced.
+      hidden: false    
+    - type: text
+      name: customLogs
+      caption: Custom logs to monitor
+      default: "#/var/log/nginx/access_log\n#/var/log/nginx/access_log"
+    - type: displayfield
+      name: displayfield3
+      markup: If file doesn't exist it will be ignored.
       hidden: false    
 
 menu:
@@ -65,9 +73,9 @@ onInstall:
 
 onUninstall:
   cmd [${targetNodes.nodeGroup}]:
-    - /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh uninstall;
-    - rm -vf /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh;
-    - rm -vf /usr/local/bin/SolarWindsChangeTokenLogsMetrics.sh;
+    - /usr/local/bin/SolarWindsHelperLoggly.sh uninstall;
+    - rm -vf /usr/local/bin/SolarWindsHelperLoggly.sh;
+    - rm -vf /usr/local/bin/SolarWindsChangeTokenLoggly.sh;
   sayYes: true
   user: root
 
@@ -84,12 +92,12 @@ actions:
           - echo -e "\n\nOn node ${@node.id}";
           - which rpm 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nrpm not found"; exit 0; fi;
           - rpm -q solarwinds-snap-agent 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nsolarwinds-snap-agent not found"; exit 0; fi;
-          - curl -fsSL '${baseUrl}/scripts/findLogs.sh' -o /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh;
-          - chmod 750 /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh;
-          - curl -fsSL '${baseUrl}/scripts/changeTokenLogsMetrics.sh' -o /usr/local/bin/SolarWindsChangeTokenLogsMetrics.sh;
-          - chmod 750 /usr/local/bin/SolarWindsChangeTokenLogsMetrics.sh;
-          - /usr/local/bin/SolarWindsChangeTokenLogsMetrics.sh "${settings.logglyToken}"
-          - /usr/local/bin/SolarWindsLogsMetricsFindLogs.sh;
+          - curl -fsSL '${baseUrl}/scripts/helperLoggly.sh' -o /usr/local/bin/SolarWindsHelperLoggly.sh;
+          - chmod 750 /usr/local/bin/SolarWindsHelperLoggly.sh;
+          - curl -fsSL '${baseUrl}/scripts/changeTokenLoggly.sh' -o /usr/local/bin/SolarWindsChangeTokenLoggly.sh;
+          - chmod 750 /usr/local/bin/SolarWindsChangeTokenLoggly.sh;
+          - /usr/local/bin/SolarWindsChangeTokenLoggly.sh "${settings.logglyToken}";
+          - /usr/local/bin/SolarWindsHelperLoggly.sh install "${settings.customLogs}";
         sayYes: true
         user: root
       - appendMessage: ${response.out}
@@ -104,8 +112,22 @@ actions:
     - forEach(node:targetNodes):
       - cmd [${@node.id}]:
         - if [ "${settings.logglyToken}" != "" ]; then 
-          if [ ! -f "/usr/local/bin/SolarWindsChangeTokenLogsMetrics.sh" ]; then curl -fsSL '${baseUrl}/scripts/changeTokenLogsMetrics.sh' -o /usr/local/bin/SolarWindsChangeTokenLogsMetrics.sh; chmod 750 /usr/local/bin/SolarWindsChangeTokenLogsMetrics.sh; fi;
-        - /usr/local/bin/SolarWindsChangeTokenLogsMetrics.sh "${settings.logglyToken}"; 
+          if [ ! -f "/usr/local/bin/SolarWindsChangeTokenLoggly.sh" ]; then curl -fsSL '${baseUrl}/scripts/changeTokenLoggly.sh' -o /usr/local/bin/SolarWindsChangeTokenLoggly.sh; chmod 750 /usr/local/bin/SolarWindsChangeTokenLoggly.sh; fi;
+        - /usr/local/bin/SolarWindsChangeTokenLoggly.sh "${settings.logglyToken}"; 
+        - fi; 
+        - systemctl restart swisnapd;
+        user: root
+      - appendMessage: ${response.out}
+    - message: ${globals.message}
+      script: |
+        return {result: 2308, message: message.replace(/\n/g, '  \n')}
+
+  updateLogs:
+    - setGlobals:
+      - message: ""
+    - forEach(node:targetNodes):
+      - cmd [${@node.id}]:
+        - /usr/local/bin/SolarWindsHelperLoggly.sh install "${settings.customLogs}"; 
         - fi; 
         - systemctl restart swisnapd;
         user: root
@@ -122,4 +144,4 @@ responses:
   2309:
     type: error
 
-success: /texts/successLogsMetrics.md
+success: Successfully installed Solar Winds Loggly plugin enabler!
