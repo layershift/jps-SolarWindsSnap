@@ -41,18 +41,22 @@ settings:
       name: customLogs
       caption: Custom logs to monitor
       default: "#/var/log/nginx/access_log\n#/var/log/nginx/access_log"
+    - type: text
+      name: excludeLogs
+      caption: Custom logs to ignore
+      default: "#/var/log/log_file\n"
     - type: displayfield
       name: displayfield3
       markup: If file doesn't exist it will be ignored.
       hidden: false    
 
 menu:
-  - caption: Change Token
+  - caption: Configure
     loadingText: Updating..
     settings: main
-    confirmText: Are you sure you wish to replace Loggly Token token?
-    action: updateToken
-    successText: Token successfully updated!
+    confirmText: Are you sure you wish to change Loggly configuration?
+    action: updateConfig
+    successText: Success!
 
 
 onAfterRedeployContainer:
@@ -94,10 +98,8 @@ actions:
           - rpm -q solarwinds-snap-agent 2>/dev/null >/dev/null; if [ $? -gt 0 ]; then echo -e "Issue:\nsolarwinds-snap-agent not found"; exit 0; fi;
           - curl -fsSL '${baseUrl}/scripts/helperLoggly.sh' -o /usr/local/bin/SolarWindsHelperLoggly.sh;
           - chmod 750 /usr/local/bin/SolarWindsHelperLoggly.sh;
-          - curl -fsSL '${baseUrl}/scripts/changeTokenLoggly.sh' -o /usr/local/bin/SolarWindsChangeTokenLoggly.sh;
-          - chmod 750 /usr/local/bin/SolarWindsChangeTokenLoggly.sh;
-          - /usr/local/bin/SolarWindsChangeTokenLoggly.sh "${settings.logglyToken}";
-          - /usr/local/bin/SolarWindsHelperLoggly.sh install "${settings.customLogs}";
+          - /usr/local/bin/SolarWindsHelperLoggly.sh updateToken token "${settings.logglyToken}";
+          - /usr/local/bin/SolarWindsHelperLoggly.sh install include_logs "${settings.customLogs}" exclude_logs "${settings.excludeLogs}";
         sayYes: true
         user: root
       - appendMessage: ${response.out}
@@ -106,14 +108,14 @@ actions:
         script: |
           return {result: 2309, message: message.replace(/\n/g, '  \n')}
 
-  updateToken:
+  updateConfig:
     - setGlobals:
       - message: ""
     - forEach(node:targetNodes):
       - cmd [${@node.id}]:
         - if [ "${settings.logglyToken}" != "" ]; then 
-          if [ ! -f "/usr/local/bin/SolarWindsChangeTokenLoggly.sh" ]; then curl -fsSL '${baseUrl}/scripts/changeTokenLoggly.sh' -o /usr/local/bin/SolarWindsChangeTokenLoggly.sh; chmod 750 /usr/local/bin/SolarWindsChangeTokenLoggly.sh; fi;
-        - /usr/local/bin/SolarWindsChangeTokenLoggly.sh "${settings.logglyToken}"; 
+          - /usr/local/bin/SolarWindsHelperLoggly.sh updateToken token "${settings.logglyToken}";
+          - /usr/local/bin/SolarWindsHelperLoggly.sh install include_logs "${settings.customLogs}" exclude_logs "${settings.excludeLogs}";
         - fi; 
         - systemctl restart swisnapd;
         user: root
@@ -121,21 +123,6 @@ actions:
     - message: ${globals.message}
       script: |
         return {result: 2308, message: message.replace(/\n/g, '  \n')}
-
-  updateLogs:
-    - setGlobals:
-      - message: ""
-    - forEach(node:targetNodes):
-      - cmd [${@node.id}]:
-        - /usr/local/bin/SolarWindsHelperLoggly.sh install "${settings.customLogs}"; 
-        - fi; 
-        - systemctl restart swisnapd;
-        user: root
-      - appendMessage: ${response.out}
-    - message: ${globals.message}
-      script: |
-        return {result: 2308, message: message.replace(/\n/g, '  \n')}
-
 
 responses:
   2308:

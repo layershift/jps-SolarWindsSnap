@@ -1,37 +1,110 @@
 #!/bin/bash
 
-action=${1:-install}
-logs="$2"
+while [[ $# -gt 0 ]]; do
+    param="$1"
+    shift
+    case $param in
+      include_logs)
+        include_logs="$1"
+      ;;
+      exclude_logs)
+        exclude_logs="$1"
+      ;;
+      token)
+        token="$1"
+      ;;
+      install|uninstall|updateToken)
+        action=$param
+      ;;
+    esac;
+done;
 
-echo "Info: action=$action";
+logsExcludeArr=();
+logsArr=();
+
+function checkInlogsExcludeArr() {
+  for file in ${logsExcludeArr[*]}; do
+    if [ "$1" == "$file" ]; then echo 0; fi;
+  done;
+  echo 1;
+}
+
+# excluded logs
+if [ ! -z "$exclude_logs" ]; then
+  while IFS= read line; do
+   if [ -f "$line" ]; then logsExcludeArr+=("$line"); else echo "Notice: $line - not found"; fi;
+  done <<<"$(printf $exclude_logs)"
+fi
 
 # specified logs
-if [ ! -z $logs ]; then
-  echo "$logs"
-  echo "--"
+if [ ! -z "$include_logs" ]; then
   while IFS= read line; do
-   echo $line;
-   echo ".";
-  done <<<"$(echo $logs)"
+    if [ $(checkInlogsExcludeArr "$line") -eq 1 ]; then
+      if [ -f "$line" ]; then 
+        logsArr+=("$line"); 
+      else 
+        echo "Notice: $line - not found"; 
+      fi;
+    fi
+  done <<<"$(printf $include_logs)"
 fi
 
-# nignx
-which nginx 2>/dev/null 1>/dev/null
-if [ $? -eq 0 ]; then
-    echo "Info: found nginx"
-    nginxUser=$(grep "user " /etc/nginx/*conf -h | grep -v "log_format" | awk '{print $NF}' | sed 's#;##g');
-
-fi
+echo "logsArr content: ${logsArr[@]}"
 
     now=$(date +%s)
     
     case $action in
+    updateToken)
+      if [ "$token" != "" ]; then
+        sed "s/token: \".*/token: \"$token\"/g" -i /opt/SolarWinds/Snap/etc/plugins.d/publisher-logs.yaml;
+        sed "s/token: \".*/token: \"$token\"/g" -i /opt/SolarWinds/Snap/etc/plugins.d/logs-v2.yaml;
+      else
+        echo "Error: Token was not specified.";
+        exit;
+      fi
+    ;;
     uninstall)
         if [ -f /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml ]; then
             mv /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml.$now;
         fi
     ;;
     install)
+        # nignx
+        which nginx 2>/dev/null 1>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "Info: found nginx"
+            while IFS= read line; do
+              if [ "$(checkInlogsExcludeArr "$line")" == "1" ]; then
+                if [ -f "$line" ]; then 
+                  logsArr+=("$line"); 
+                else 
+                  echo "Notice: $line - not found"; 
+                fi;
+              fi
+            done <<<"$(grep -hr /var/log/nginx /etc/nginx/* | awk '{print $2}' | sort | uniq)"
+
+            # fix php-fpm.log group permission
+            if [ -f /var/log/nginx/php-fpm.log ]; then chmod g+r /var/log/nginx/php-fpm.log; logsArr+=("/var/log/nginx/php-fpm.log"); fi
+        fi
+
+        # apache
+        which httpd 2>/dev/null 1>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "Info: found Apache"
+
+            while IFS= read line; do
+              if [ "$(checkInlogsExcludeArr "$line")" == "1" ]; then
+                if [ -f "$line" ]; then 
+                  logsArr+=("$line"); 
+                else 
+                  echo "Notice: $line - not found"; 
+                fi;
+              fi
+            done <<<"$(grep -hr /var/log/httpd /etc/httpd/conf* | awk '{print $2}' | sort | uniq)"
+        fi
+
+        echo "logsArr content: ${logsArr[@]}"
+
         if [ -f /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml ]; then
             mv /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml.$now;
         fi
@@ -59,10 +132,7 @@ plugins:
       ## ".*self-skip-logs-collector.*"
       file_paths:
 EOF
-#            for file in $(egrep "error_log|access_log" /etc/nginx/*.conf -rh  | awk '{print $(NF-1)}'); do
-            # fix php-fpm.log group permission
-        chmod g+r /var/log/nginx/php-fpm.log
-        for file in $(find /var/log/nginx/ -name "*.log"); do
+        for file in ${logsArr[*]}; do
             if [ -f $file ]; then 
                 echo  "\
         - $file" >> /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml
@@ -96,6 +166,10 @@ EOF
       - plugin_name: loggly-http-bulk
 EOF
         diff /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml /opt/SolarWinds/Snap/etc/tasks-autoload.d/task-logs-files.yaml.$now
+    ;;
+    *)
+      echo "Error: no action $action not valid [install/uninstall]"
+      exit 1;
     ;;
     esac
     jem service restart swisnapd
